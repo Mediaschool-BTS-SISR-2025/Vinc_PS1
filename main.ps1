@@ -1,12 +1,12 @@
 # Menu principal pour la configuration Active Directory
 # main.ps1
-# Date: 2025-05-23
+# Date: 2025-06-13
 # Auteur: Vinceadr
 
 # Configuration de l'encodage pour les caractères accentués
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# FONCTION WriteLog AUTONOME (plus besoin d'import)
+# FONCTION WriteLog AUTONOME
 function WriteLog {
     param(
         [string]$Message,
@@ -42,8 +42,8 @@ function VerifierScripts {
         "AjoutOU.ps1",
         "AjoutGroup.ps1",
         "AjoutUser.ps1",
-        "ImportCSV.ps1"
-        # "FonctionsUtilitaires.ps1"   <-- supprimé pour ne plus vérifier ce fichier !
+        "ImportCSV.ps1",
+        "HorraireGPO.ps1"  # Nom corrigé ici avec un "e"
     )
     
     $scriptPath = $PSScriptRoot
@@ -88,6 +88,47 @@ function ExecuterScript {
     }
 }
 
+function ExecuterHorraireGPO {
+    $scriptPath = Join-Path $PSScriptRoot "HorraireGPO.ps1"  # Nom corrigé ici avec un "e"
+    
+    if (Test-Path $scriptPath) {
+        try {
+            WriteLog "Exécution du script: HorraireGPO.ps1" -Type "INFO"
+            
+            # Inclure le script HorraireGPO.ps1 pour pouvoir utiliser ses fonctions
+            . $scriptPath
+            
+            # Exécuter la fonction Set-HorraireGPO qui est définie dans HorraireGPO.ps1
+            $csvOutputPath = "$PSScriptRoot\utilisateurs_fictifs.csv"
+            $result = Set-HorraireGPO -LogPath "$PSScriptRoot\HorraireGPO_log.txt" -OutputCSVPath $csvOutputPath
+            
+            if ($result.Status -eq "Success") {
+                WriteLog "Configuration des OUs et restrictions horaires terminée avec succès" -Type "SUCCESS"
+                WriteLog "$($result.UsersGenerated) utilisateurs générés dans le CSV" -Type "INFO"
+                
+                # Demander à l'utilisateur s'il souhaite importer le CSV
+                Write-Host ""
+                $importChoice = Read-Host "Voulez-vous importer les utilisateurs du CSV généré? (O/N)"
+                
+                if ($importChoice.ToUpper() -eq "O") {
+                    WriteLog "Lancement de l'import CSV..." -Type "INFO"
+                    ExecuterScript "ImportCSV.ps1"
+                }
+            }
+            else {
+                WriteLog "Erreur lors de la configuration des OUs et restrictions horaires" -Type "ERROR"
+            }
+        }
+        catch {
+            WriteLog "Erreur lors de l'exécution de HorraireGPO.ps1 : $_" -Type "ERROR"
+        }
+    }
+    else {
+        WriteLog "Script manquant: HorraireGPO.ps1" -Type "ERROR"
+        Write-Host "Le script HorraireGPO.ps1 n'existe pas dans le répertoire courant." -ForegroundColor Red
+    }
+}
+
 WriteLog "Démarrage du menu principal" -Type "INFO"
 VerifierScripts
 
@@ -95,32 +136,35 @@ $continue = $true
 
 while ($continue) {
     Clear-Host
-    Write-Host "============================================================================" -ForegroundColor Cyan
-    Write-Host "                    MENU DE CONFIGURATION ACTIVE DIRECTORY                  " -ForegroundColor White
-    Write-Host "============================================================================" -ForegroundColor Cyan
+    Write-Host "============================================================================" -ForegroundColor Green
+    Write-Host "                    MENU DE CONFIGURATION ACTIVE DIRECTORY                  " -ForegroundColor Red
+    Write-Host "============================================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "--------------------------- Configuration de base ------------------------" -ForegroundColor Yellow
+    Write-Host "--------------------------- Configuration de base ------------------------" -ForegroundColor Green
     Write-Host "  1 - Renommer PC" -ForegroundColor White
     Write-Host "  2 - Adressage IP fixe" -ForegroundColor White
     Write-Host "  3 - Installation ADDS, DHCP et DNS" -ForegroundColor White
     Write-Host ""
-    Write-Host "------------------------ Configuration du domaine ---------------------" -ForegroundColor Yellow
+    Write-Host "------------------------ Configuration du domaine ---------------------" -ForegroundColor Green
     Write-Host "  4 - Configuration du ADDS" -ForegroundColor White
     Write-Host "  5 - Configuration du DNS" -ForegroundColor White
     Write-Host "  6 - Configuration du DHCP" -ForegroundColor White
     Write-Host ""
-    Write-Host "------------ Configuration Active Directory et utilisateurs -----------" -ForegroundColor Yellow
+    Write-Host "------------ Configuration Active Directory et utilisateurs -----------" -ForegroundColor Green
     Write-Host "  7 - Ajout d'une OU" -ForegroundColor White
     Write-Host "  8 - Ajout d'un groupe d'utilisateurs" -ForegroundColor White
     Write-Host "  9 - Ajouter un utilisateur" -ForegroundColor White
     Write-Host " 10 - Import depuis un CSV" -ForegroundColor White
     Write-Host ""
-    Write-Host "============================================================================" -ForegroundColor Cyan
+    Write-Host "-------------- Configuration avancée et automatisations --------------" -ForegroundColor Green
+    Write-Host " 11 - Configuration des restrictions horaires (HorraireGPO)" -ForegroundColor White  # Nom corrigé ici avec un "e"
+    Write-Host ""
+    Write-Host "============================================================================" -ForegroundColor Green
     Write-Host "  0 - Quitter" -ForegroundColor Red
-    Write-Host "============================================================================" -ForegroundColor Cyan
+    Write-Host "============================================================================" -ForegroundColor Green
     Write-Host ""
 
-    $choix = Read-Host "Entrez votre choix (0-10)"
+    $choix = Read-Host "Entrez votre choix (0-11)"
     Write-Host ""
 
     switch ($choix) {
@@ -134,13 +178,14 @@ while ($continue) {
         "8" { ExecuterScript "AjoutGroup.ps1" }
         "9" { ExecuterScript "AjoutUser.ps1" }
         "10" { ExecuterScript "ImportCSV.ps1" }
+        "11" { ExecuterHorraireGPO }  # Appel à la fonction qui gère HorraireGPO
         "0" {
             WriteLog "Fermeture du menu principal" -Type "INFO"
             Write-Host "Fermeture du menu. À bientôt !" -ForegroundColor Green
             $continue = $false
         }
         default {
-            Write-Host "Choix invalide. Veuillez entrer un nombre entre 0 et 10." -ForegroundColor Red
+            Write-Host "Choix invalide. Veuillez entrer un nombre entre 0 et 11." -ForegroundColor Red
         }
     }
 
